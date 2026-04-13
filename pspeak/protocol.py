@@ -21,21 +21,22 @@ def pack(msg_type: MsgType, msg_content: bytes) -> bytes:
     return packed_msg
 
 # Will recieve the dataset and unpack it from bytes to its type, len and content.
-def unpack(content: bytes) -> tuple[MsgType, bytes,  bytes]:
-    msg_len_bytes = content[:8]
-    msg_type_bytes = content[8:10]
-    msg_content_bytes = content[10:]
+def unpack(content: bytes) -> tuple[bytes, MsgType, bytes]:
+    msg_len_bytes = content[0:4]
+    msg_type_bytes = content[4:5]
+    msg_content_bytes = content[5:]
 
-    print(msg_len_bytes, msg_type_bytes, msg_content_bytes)
+    msg_type = MsgType(int.from_bytes(msg_type_bytes, byteorder='big'))
+    msg_len = int.from_bytes(msg_len_bytes, byteorder='big')
 
-    return 
+    return (msg_len, msg_type, msg_content_bytes)
 
 
 def main():
 
-    msg = pack(MsgType.MSG, b'wowwwwwww this is crazy').hex()
+    msg = pack(MsgType.MSG, b'wowwwwwww this is crazy')
     unpacked_msg = unpack(msg)
-    print(msg)
+    print(msg.hex(), unpacked_msg)
 
 
 if __name__ == "__main__":
