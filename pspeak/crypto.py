@@ -54,8 +54,6 @@ def main():
     enc2 = Encryptor(sharedKey, nonce2)
 
     encrypted_mssg = enc1.encrypt("Hi bro".encode())
-
-    
     decrypted_mssg = enc2.decrypt(encrypted_mssg)
     print("Encrypted:", encrypted_mssg)
     print("Decrypted:", decrypted_mssg.decode())
