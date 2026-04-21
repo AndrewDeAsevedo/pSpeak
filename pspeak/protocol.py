@@ -1,7 +1,6 @@
 from enum import IntEnum
 import struct
 # importing encryptor to use in main for testing, later make this file recieve the content not encrypt it itself.
-from crypto import Encryptor
 
 class MsgType(IntEnum):
     HELLO = 0
@@ -21,20 +20,25 @@ def pack(msg_type: MsgType, msg_content: bytes) -> bytes:
     return packed_msg
 
 # Will recieve the dataset and unpack it from bytes to its type, len and content.
-def unpack(content: bytes) -> tuple[bytes, MsgType, bytes]:
+def unpack(content: bytes) -> tuple[int, MsgType, bytes]:
     msg_len_bytes = content[0:4]
     msg_type_bytes = content[4:5]
     msg_content_bytes = content[5:]
 
     msg_type = MsgType(int.from_bytes(msg_type_bytes, byteorder='big'))
-    msg_len = int.from_bytes(msg_len_bytes, byteorder='big')
+    payload_len = int.from_bytes(msg_len_bytes, byteorder='big') - 1
+    
+    # TODO: make this a try except block
+    if payload_len != len(msg_content_bytes):
+        raise ValueError("Length mismatch")
+    
 
-    return (msg_len, msg_type, msg_content_bytes)
+    return (payload_len, msg_type, msg_content_bytes)
 
 
 def main():
 
-    msg = pack(MsgType.MSG, b'wowwwwwww this is crazy')
+    msg = pack(MsgType.MSG, b'test')
     unpacked_msg = unpack(msg)
     print(msg.hex(), unpacked_msg)
 
