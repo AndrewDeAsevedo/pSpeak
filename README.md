@@ -13,7 +13,7 @@ explain how to set up signalling server, the room names and etc.
 Discuss learning purpose and how each step of the project works. explain signalling server and its purpose, explain the encryption, and explain protocol layer. Pretend you are about to develop this project yourself all over again and just stumbled upon this readme. Be very thorough.
 Ideas:
 - Why you're adding a  length field in your UDP message even though its a little redundant.
-- 
+- Nice to Have: tests for all the files (unit and int tests should be fine)
 
 
 ### --USE OF AI--

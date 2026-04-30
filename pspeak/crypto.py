@@ -9,13 +9,14 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes
 
+
 class Encryptor:
     def __init__(self, raw_shared_key, start_nonce):
         self.cipher = AESGCM(raw_shared_key)
         self.nonce = start_nonce
 
     def encrypt(self, data):
-        nonce_bytes = self.nonce.to_bytes(12, 'big')
+        nonce_bytes = self.nonce.to_bytes(12, "big")
         ciphertext = self.cipher.encrypt(nonce_bytes, data, None)
         self.nonce += 2
 
@@ -26,6 +27,7 @@ class Encryptor:
         ciphertext = data[12:]
         return self.cipher.decrypt(nonce_bytes, ciphertext, None)
 
+
 def createSharedKey(private_key_a, public_key_b):
     raw_shared_key = private_key_a.exchange(public_key_b)
     return HKDF(
@@ -34,6 +36,7 @@ def createSharedKey(private_key_a, public_key_b):
         salt=None,
         info=b"pspeak-chat-key",
     ).derive(raw_shared_key)
+
 
 class KeyGenerator:
     def __init__(self):
@@ -60,5 +63,6 @@ def main():
 
     return
 
-if __name__ =="__main__":
+
+if __name__ == "__main__":
     main()
