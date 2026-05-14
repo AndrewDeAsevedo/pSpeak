@@ -14,13 +14,12 @@ class MsgType(IntEnum):
 
 
 # Will recieve the type, and the body it wants to transmit, and return bytes containing type, len, content.
-def pack(msg_type: MsgType, msg_content: str) -> bytes:
-    msg_content_bytes = msg_content.encode("utf-8")
-    msg_len = 1 + len(msg_content_bytes)
+def pack(msg_type: MsgType, msg_content: bytes) -> bytes:
+    msg_len = 1 + len(msg_content)
     msg_len_bytes = struct.pack("!I", msg_len)
     msg_type_bytes = int(msg_type).to_bytes(1, "big")
 
-    packed_msg = msg_len_bytes + msg_type_bytes + msg_content_bytes
+    packed_msg = msg_len_bytes + msg_type_bytes + msg_content
     return packed_msg
 
 
@@ -42,7 +41,7 @@ def unpack(content: bytes) -> tuple[int, MsgType, bytes]:
 
 def main():
 
-    msg = pack(MsgType.MSG, "test")
+    msg = pack(MsgType.MSG, b"test")
     unpacked_msg = unpack(msg)
     print(msg.hex(), unpacked_msg)
 

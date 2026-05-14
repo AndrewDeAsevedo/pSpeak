@@ -1,10 +1,13 @@
 import crypto
 import nat
+import protocol
 import json
 import sys
 import socket
 import time
+import threading
 
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosedOK
 
@@ -41,25 +44,79 @@ def main(args):
 
         peer_addr = (payload["ip"], payload["port"])
 
+        # 3. Derive shared encryption key from peer's public key
+        peer_public_key = X25519PublicKey.from_public_bytes(
+            bytes.fromhex(payload["publicKey"])
+        )
+        shared_key = crypto.createSharedKey(keys.private_key, peer_public_key)
+
+        # Creator gets even nonces (0, 2, 4...), joiner gets odd (1, 3, 5...)
+        my_nonce = 0 if args == "1" else 1
+        encryptor = crypto.Encryptor(shared_key, my_nonce)
+        decryptor = crypto.Encryptor(shared_key, 0)
+
         # 4. Start UDP hole punch
         print(f"Punching hole to {peer_addr}")
-        for _ in range(5):
+        for _ in range(10):
             sock.sendto(b"PUNCH", peer_addr)
-            time.sleep(0.1)
+            time.sleep(0.3)
 
         sock.settimeout(5)
         try:
             data, addr = sock.recvfrom(1024)
-            if data == b"PUNCH":
-                print(f"Hole punch successful! Direct path to {addr}")
-                # Now communicate directly
-                sock.sendto(b"Hello directly!", peer_addr)
-                data, _ = sock.recvfrom(1024)
-                print(f"Received: {data.decode()}")
+            print(f"Hole punch successful! Connected to {addr}")
         except socket.timeout:
             print("Hole punch failed - symmetric NAT or firewall blocking")
+            return
 
-        # 5. Once connected, encrypt and send/receive messages
+        # 5. Encrypted chat loop
+        print("\n--- Chat started. Type messages and press Enter. Ctrl+C to quit. ---\n")
+        sock.settimeout(0.5)
+
+        # Receiver thread: listens for incoming UDP, decrypts, prints
+        running = True
+
+        def receive_loop():
+            while running:
+                try:
+                    data, addr = sock.recvfrom(4096)
+                    if data == b"PUNCH":
+                        continue
+                    _, msg_type, encrypted_payload = protocol.unpack(data)
+
+                    if msg_type == protocol.MsgType.MSG:
+                        plaintext = decryptor.decrypt(encrypted_payload)
+                        print(f"\n  Peer: {plaintext.decode()}")
+                    elif msg_type == protocol.MsgType.BYE:
+                        print("\n  Peer disconnected.")
+                        break
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    print(f"\n  Error receiving: {e}")
+                    break
+
+        recv_thread = threading.Thread(target=receive_loop, daemon=True)
+        recv_thread.start()
+
+        # Main thread: reads input, encrypts, sends
+        try:
+            while True:
+                text = input()
+                if text.lower() in ("/quit", "/exit"):
+                    bye_packet = protocol.pack(protocol.MsgType.BYE, b"")
+                    sock.sendto(bye_packet, peer_addr)
+                    break
+                encrypted = encryptor.encrypt(text.encode())
+                packet = protocol.pack(protocol.MsgType.MSG, encrypted)
+                sock.sendto(packet, peer_addr)
+        except KeyboardInterrupt:
+            bye_packet = protocol.pack(protocol.MsgType.BYE, b"")
+            sock.sendto(bye_packet, peer_addr)
+            print("\nDisconnected.")
+
+        running = False
+        
     finally:
         sock.close()
 
