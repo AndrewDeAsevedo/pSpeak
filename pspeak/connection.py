@@ -6,13 +6,15 @@ import sys
 import socket
 import time
 import threading
+import os
 
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosedOK
+from dotenv import load_dotenv
 
-# TODO: move this to .env and put homelab address
-SIGNALLING_SERVER = "ws://localhost:8765"
+load_dotenv()
+SIGNALLING_SERVER = os.getenv("SIGNALLING_SERVER")
 
 
 def main(args, local=False):
@@ -77,7 +79,9 @@ def main(args, local=False):
             print(f"Connected to peer at {peer_addr}")
 
         # 5. Encrypted chat loop
-        print("\n--- Chat started. Type messages and press Enter. Ctrl+C to quit. ---\n")
+        print(
+            "\n--- Chat started. Type messages and press Enter. Ctrl+C to quit. ---\n"
+        )
         sock.settimeout(0.5)
 
         # Receiver thread: listens for incoming UDP, decrypts, prints
@@ -123,7 +127,7 @@ def main(args, local=False):
             print("\nDisconnected.")
 
         running = False
-        
+
     finally:
         sock.close()
 
