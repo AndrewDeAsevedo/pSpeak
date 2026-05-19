@@ -15,7 +15,7 @@ from websockets.exceptions import ConnectionClosedOK
 SIGNALLING_SERVER = "ws://localhost:8765"
 
 
-def main(args):
+def main(args, local=False):
     keys = crypto.KeyGenerator()
     public_key_hex = keys.public_key.public_bytes_raw().hex()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -23,8 +23,13 @@ def main(args):
     try:
         sock.bind(("0.0.0.0", 0))
 
-        # 1. Discover my public IP via STUN and opening UDP port
-        my_ip, my_port = nat.get_public_ip_stun(sock)
+        # 1. Discover my address
+        if local:
+            my_ip = "127.0.0.1"
+            my_port = sock.getsockname()[1]
+            print(f"Local mode: {my_ip}:{my_port}")
+        else:
+            my_ip, my_port = nat.get_public_ip_stun(sock)
 
         # 2. Connect to signaling server and exchange IP + Keys
         data_to_transfer = {
@@ -33,7 +38,6 @@ def main(args):
             "publicKey": public_key_hex,
         }
 
-        # TODO: this probably wont just be an args check
         # if creating the room
         if args == "1":
             payload = create_signal_room(data_to_transfer)
@@ -55,19 +59,22 @@ def main(args):
         encryptor = crypto.Encryptor(shared_key, my_nonce)
         decryptor = crypto.Encryptor(shared_key, 0)
 
-        # 4. Start UDP hole punch
-        print(f"Punching hole to {peer_addr}")
-        for _ in range(10):
-            sock.sendto(b"PUNCH", peer_addr)
-            time.sleep(0.3)
+        if not local:
+            # 4. Start UDP hole punch (skip on localhost)
+            print(f"Punching hole to {peer_addr}")
+            for _ in range(10):
+                sock.sendto(b"PUNCH", peer_addr)
+                time.sleep(0.3)
 
-        sock.settimeout(5)
-        try:
-            data, addr = sock.recvfrom(1024)
-            print(f"Hole punch successful! Connected to {addr}")
-        except socket.timeout:
-            print("Hole punch failed - symmetric NAT or firewall blocking")
-            return
+            sock.settimeout(5)
+            try:
+                data, addr = sock.recvfrom(1024)
+                print(f"Hole punch successful! Connected to {addr}")
+            except socket.timeout:
+                print("Hole punch failed - symmetric NAT or firewall blocking")
+                return
+        else:
+            print(f"Connected to peer at {peer_addr}")
 
         # 5. Encrypted chat loop
         print("\n--- Chat started. Type messages and press Enter. Ctrl+C to quit. ---\n")
@@ -166,7 +173,9 @@ def connect_to_signal_room(string_to_transfer, room_code):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        main(sys.argv[1])
-    else:
+    if len(sys.argv) < 2:
         print("\n-------------ERROR: missing args-------------")
+        print("Usage: python3 connection.py <1|2> [--local]")
+        sys.exit(1)
+    local_mode = "--local" in sys.argv
+    main(sys.argv[1], local=local_mode)
